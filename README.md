@@ -1,49 +1,65 @@
-# Credit Risk Prediction
+# Credit Risk Prediction (Home Credit)
 
-## Overview
-This project is focused on building a machine learning model for credit risk prediction. The project involves extensive data analysis, feature engineering, and model deployment. It provides a structured approach to processing large datasets, training multiple models, and deploying the best performing one.
+Predicting whether a loan applicant will default, using the Home Credit Default Risk data: a large, imbalanced
+dataset (8 % defaults) spread over several linked tables. The project covers exploratory analysis, feature
+engineering across the tables, tuned gradient-boosting models, a stacking ensemble, decision-threshold tuning and a
+deployed prediction API.
 
-## Features
-- Exploratory Data Analysis (EDA)
-- Feature Engineering & Selection
-- Model Training and Evaluation (XGBoost, LightGBM, Random Forest)
-- Automated Model Deployment Pipeline
-- Deployed API for real-time predictions
+## Results
 
-## Repository Structure
-- `*.ipynb`: Jupyter notebooks for EDA, feature engineering, and modeling
-- `utilities_eda.py`: Utility functions for data preprocessing and analysis
-- `model_deployment/test_api.py`: Script to test the deployed API
+ROC AUC on a held-out split of the training data (61,503 applicants):
 
-## Installation
-1. Clone the repository:
-   ```
-   bash
-   git clone https://github.com/pboric/Project-11x.git
-   
-2. Install the required packages:
-   ```
-   bash
-   pip install -r requirements.txt
-   
+| Model | ROC AUC |
+|---|---:|
+| LightGBM (tuned with Optuna) | 0.787 |
+| XGBoost (tuned with Optuna) | 0.785 |
+| Random Forest (tuned with Optuna) | 0.760 |
+| Stacking ensemble of the three | 0.787 |
 
-## Usage
-1. Navigate through the notebooks to understand the data analysis and modeling process.
-2. Use the `utilities_eda.py` for data preprocessing.
-3. Modify and run the scripts to train and evaluate models on your dataset.
+With only 8 % defaults, the default threshold of 0.5 almost never flags an applicant, so the threshold was tuned. At
+a threshold of 0.2 the stacking model catches 39 % of defaulters with 28 % precision (ROC AUC 0.779 on the split
+used for threshold tuning). This model and threshold are used in the API.
 
-## Deployed API
-The trained model is deployed and can be accessed at:
-[Home Credit Group Defaulter Prediction API](https://home-credit-group-defaulter-prediction.onrender.com)
+## Live API
 
-To test the API, use the `test_api.py` script located in the `model_deployment` folder:
-   ```
-   bash
-   python model_deployment/test_api.py
-   ```
+The model is deployed with FastAPI at
+[home-credit-group-defaulter-prediction.onrender.com](https://home-credit-group-defaulter-prediction.onrender.com)
+(free hosting, so the first request can take up to a minute). `model_deployment/test_api.py` sends a test request.
+
+## Repository
+
+| File | Content |
+|---|---|
+| [`EDA.ipynb`](EDA.ipynb) | All tables: missing values, target imbalance, Phi-K and correlation analysis, categorical and continuous features |
+| [`Feature_Engineering.ipynb`](Feature_Engineering.ipynb) | Cleaning and aggregating the bureau, previous application, POS cash, instalment and credit card tables; imputation; 453 features |
+| [`Modelling.ipynb`](Modelling.ipynb) | Optuna tuning, model comparison, stacking, threshold tuning, saved models and a submission file |
+| `utilities_eda.py` | Helper functions used in the EDA |
+| `model_deployment/` | FastAPI service (`main.py`), Dockerfile, saved models and `test_api.py` |
+
+## Data
+
+[Home Credit Default Risk](https://www.kaggle.com/c/home-credit-default-risk/data) on Kaggle (about 2.5 GB, not
+included). Put the CSV files in the folder the notebooks read from.
+
+## Run it
+
+```bash
+pip install -r requirements.txt
+# then run EDA.ipynb, Feature_Engineering.ipynb and Modelling.ipynb in order
+
+# API, locally
+cd model_deployment
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
+
+## Limitations
+
+- One engineered feature, the default rate among each applicant's 500 nearest neighbours, is computed on the full
+  training data before the validation split. Each applicant's own label counts towards it with a weight of 1/500,
+  so the validation scores may be slightly optimistic.
+- At any threshold there is a clear trade-off: catching more defaulters means rejecting many good applicants.
 
 ## License
-This project is licensed under the MIT License.
 
-## Author
-Petar Krešimir Borić
+MIT
